@@ -27,7 +27,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="bg-primary-600 p-2 rounded-lg">
                   <Truck className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-xl font-bold text-gray-900">EL TRANSPORTE</span>
+                <span className="text-xl font-bold text-gray-900">JL DISTRIBUCIONES</span>
               </Link>
 
               {location.pathname !== '/' && (

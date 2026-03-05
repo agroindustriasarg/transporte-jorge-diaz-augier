@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== USUARIOS Y AUTENTICACIÓN ==========
+
+model User {
+  id        String   @id @default(uuid())
+  usuario   String   @unique
+  email     String   @unique
+  password  String
+  nombre    String
+  apellido  String
+  rol       UserRole @default(OPERARIO)
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+enum UserRole {
+  ADMIN
+  GERENTE
+  OPERARIO
+  VISOR
+}
+
+// ========== PROVEEDORES ==========
+
+model Proveedor {
+  id        String   @id @default(uuid())
+  nombre    String
+  cuit      String?
+  telefono  String?
+  email     String?
+  direccion String?
+  contacto  String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("proveedores")
+}
+
+// ========== CLIENTES ==========
+
+model Cliente {
+  id        String   @id @default(uuid())
+  nombre    String
+  cuit      String?
+  telefono  String?
+  email     String?
+  direccion String?
+  contacto  String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+}
+
+// ========== CHOFERES ==========
+
+model Chofer {
+  id              String   @id @default(uuid())
+  nombre          String
+  apellido        String
+  dni             String?
+  telefono        String?
+  transporte      String?
+  marcaCamion     String?
+  patenteCamion   String?
+  patenteAcoplado String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("choferes")
+}
+
+// ========== PRODUCTOS ==========
+
+model Producto {
+  id        String   @id @default(uuid())
+  nombre    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("productos")
+}
+
+// ========== PAGOS ==========
+
+model Pago {
+  id                   String   @id @default(uuid())
+  tipo                 String   // "proveedor" | "cliente" | "transporte"
+  entidadId            String?
+  entidadNombre        String?
+  concepto             String?
+  numeroComprobante    String?
+  moneda               String   @default("ARS")
+  cotizacion           Float    @default(1)
+  monto                Float
+  montoARS             Float    @default(0)
+  fecha                DateTime @default(now())
+  // Forma de pago
+  formaPago            String?  // TRANSFERENCIA | EFECTIVO | TARJETA | CHEQUE
+  chequeNumero         String?
+  chequeBanco          String?
+  chequeEmpresa        String?
+  chequeFechaCobro     DateTime?
+  // Campos exclusivos de combustible (solo transporte)
+  esCombustible        Boolean  @default(false)
+  combProveedor        String?
+  combLitros           Float?
+  combPrecioLitro      Float?
+  combNFactura         String?
+  combNOrden           String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("pagos")
+}
+
+// ========== PRECIOS CEREALES ==========
+
+model PrecioCereal {
+  id        String   @id @default(uuid())
+  cereal    String   @unique
+  precio    Float    @default(0)
+  difPesos  Float    @default(0)
+  difPct    Float    @default(0)
+  tendencia String   @default("up")
+  updatedAt DateTime @updatedAt
+
+  @@map("precios_cereales")
+}
+
+// ========== VIAJES ==========
+
+model Viaje {
+  id               String   @id @default(uuid())
+  fecha            DateTime
+  chofer           String?
+  patente          String?
+  productoId       String?
+  cpe              String?
+  transporte       String?
+  clienteId        String?
+  proveedorId      String?
+  kmRecorridos     Float?
+  kgCargados       Float?
+  kgDescargados    Float?
+  tarifaCliente    Float?
+  tarifaTransporte Float?
+  descuento        Float?
+  precioPizarra    Float?
+  precioCompra     Float?
+  precioVenta      Float?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("viajes")
+}

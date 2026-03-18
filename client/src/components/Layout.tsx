@@ -1,68 +1,68 @@
-import { ReactNode } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Truck, LogOut, Home } from 'lucide-react';
 
-interface LayoutProps {
-  children: ReactNode;
-}
+const navItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+  { path: '/viajes', label: 'Viajes', icon: '🚛' },
+  { path: '/ordenes-pago', label: 'Órdenes de Pago', icon: '💳' },
+  { path: '/facturas-a-pagar', label: 'Facturas a Pagar', icon: '📄' },
+];
 
-export default function Layout({ children }: LayoutProps) {
+const configItems = [
+  { path: '/clientes', label: 'Clientes', icon: '🏢' },
+  { path: '/fleteros', label: 'Fleteros', icon: '🚚' },
+  { path: '/comisionistas', label: 'Comisionistas', icon: '👤' },
+  { path: '/rutas', label: 'Rutas / Tarifas', icon: '🗺️' },
+  { path: '/usuarios', label: 'Usuarios', icon: '👥' },
+];
+
+export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
+  const [configOpen, setConfigOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  const handleLogout = () => { logout(); navigate('/login'); };
+
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Link to="/" className="flex items-center space-x-2">
-                <div className="bg-primary-600 p-2 rounded-lg">
-                  <Truck className="w-6 h-6 text-white" />
-                </div>
-                <span className="text-xl font-bold text-gray-900">JL DISTRIBUCIONES</span>
-              </Link>
-
-              {location.pathname !== '/' && (
-                <Link
-                  to="/"
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 hover:text-primary-800 transition-all font-medium shadow-sm"
-                >
-                  <Home className="w-5 h-5" />
-                  <span className="text-base">Inicio</span>
-                </Link>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.nombre} {user?.apellido}
-                </p>
-                <p className="text-xs text-gray-600">{user?.rol}</p>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Salir</span>
-              </button>
-            </div>
-          </div>
+    <div className="flex h-screen bg-gray-100">
+      <aside className="w-56 bg-gray-900 flex flex-col">
+        <div className="p-4 border-b border-gray-700">
+          <h1 className="text-white font-bold text-base leading-tight">JL Distribuciones</h1>
+          <p className="text-gray-400 text-xs mt-1">{user?.nombre} {user?.apellido}</p>
         </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {navItems.map((item) => (
+            <NavLink key={item.path} to={item.path} className={linkClass}>
+              <span>{item.icon}</span><span>{item.label}</span>
+            </NavLink>
+          ))}
+          <div className="pt-2">
+            <button onClick={() => setConfigOpen(!configOpen)} className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
+              <span className="flex items-center gap-2"><span>⚙️</span><span>Configuración</span></span>
+              <span className="text-xs">{configOpen ? '▲' : '▼'}</span>
+            </button>
+            {configOpen && (
+              <div className="ml-3 mt-1 space-y-1">
+                {configItems.map((item) => (
+                  <NavLink key={item.path} to={item.path} className={linkClass}>
+                    <span>{item.icon}</span><span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        </nav>
+        <div className="p-3 border-t border-gray-700">
+          <button onClick={handleLogout} className="w-full px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors text-left">
+            🚪 Cerrar sesión
+          </button>
+        </div>
+      </aside>
+      <main className="flex-1 overflow-auto"><Outlet /></main>
     </div>
   );
 }

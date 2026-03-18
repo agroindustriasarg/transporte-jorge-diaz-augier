@@ -5,7 +5,7 @@ import { prisma } from '../utils/prisma.js';
 
 export const getUsuarios = async (req: Request, res: Response): Promise<void> => {
   try {
-    const usuarios = await prisma.user.findMany({
+    const usuarios = await prisma.usuario.findMany({
       select: {
         id: true,
         usuario: true,
@@ -30,7 +30,7 @@ export const updateUsuario = async (req: Request, res: Response): Promise<void> 
     const { id } = req.params;
     const { activo } = req.body;
 
-    const usuario = await prisma.user.update({
+    const usuario = await prisma.usuario.update({
       where: { id },
       data: { activo },
       select: {
@@ -57,7 +57,7 @@ export const editUsuario = async (req: Request, res: Response): Promise<void> =>
     const { nombre, email, apellido, rol, password } = req.body;
 
     if (email) {
-      const existingUser = await prisma.user.findUnique({ where: { email } });
+      const existingUser = await prisma.usuario.findUnique({ where: { email } });
       if (existingUser && existingUser.id !== id) {
         res.status(400).json({ error: 'El email ya está en uso por otro usuario' });
         return;
@@ -69,7 +69,7 @@ export const editUsuario = async (req: Request, res: Response): Promise<void> =>
       updateData.password = await bcrypt.hash(password, 10);
     }
 
-    const usuario = await prisma.user.update({
+    const usuario = await prisma.usuario.update({
       where: { id },
       data: updateData,
       select: {
@@ -93,7 +93,7 @@ export const editUsuario = async (req: Request, res: Response): Promise<void> =>
 export const deleteUsuario = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    await prisma.user.delete({ where: { id } });
+    await prisma.usuario.delete({ where: { id } });
     res.json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
     console.error('Error al eliminar usuario:', error);

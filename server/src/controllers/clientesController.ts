@@ -4,7 +4,7 @@ import { prisma } from '../utils/prisma.js';
 
 export const getClientes = async (req: Request, res: Response): Promise<void> => {
   try {
-    const clientes = await prisma.cliente.findMany({ orderBy: { createdAt: 'desc' } });
+    const clientes = await prisma.cliente.findMany({ where: { activo: true }, orderBy: { nombre: 'asc' } });
     res.json(clientes);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener clientes' });
@@ -13,10 +13,9 @@ export const getClientes = async (req: Request, res: Response): Promise<void> =>
 
 export const createCliente = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { nombre, cuit, telefono, email, direccion, contacto } = req.body;
-    const cliente = await prisma.cliente.create({
-      data: { nombre, cuit, telefono, email, direccion, contacto },
-    });
+    const { nombre, cuit, telefono, email, contacto } = req.body;
+    if (!nombre) { res.status(400).json({ error: 'El nombre es requerido' }); return; }
+    const cliente = await prisma.cliente.create({ data: { nombre, cuit, telefono, email, contacto } });
     res.status(201).json(cliente);
   } catch (error) {
     res.status(500).json({ error: 'Error al crear cliente' });
@@ -26,11 +25,8 @@ export const createCliente = async (req: Request, res: Response): Promise<void> 
 export const updateCliente = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { nombre, cuit, telefono, email, direccion, contacto, activo } = req.body;
-    const cliente = await prisma.cliente.update({
-      where: { id },
-      data: { nombre, cuit, telefono, email, direccion, contacto, activo },
-    });
+    const { nombre, cuit, telefono, email, contacto, activo } = req.body;
+    const cliente = await prisma.cliente.update({ where: { id }, data: { nombre, cuit, telefono, email, contacto, activo } });
     res.json(cliente);
   } catch (error) {
     res.status(500).json({ error: 'Error al actualizar cliente' });
@@ -40,8 +36,8 @@ export const updateCliente = async (req: Request, res: Response): Promise<void> 
 export const deleteCliente = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    await prisma.cliente.delete({ where: { id } });
-    res.json({ message: 'Cliente eliminado exitosamente' });
+    await prisma.cliente.update({ where: { id }, data: { activo: false } });
+    res.json({ message: 'Cliente eliminado' });
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar cliente' });
   }

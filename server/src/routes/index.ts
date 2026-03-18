@@ -2,24 +2,22 @@
 import { Router } from 'express';
 import authRoutes from './auth.js';
 import usuariosRoutes from './usuarios.js';
-import proveedoresRoutes from './proveedores.js';
 import clientesRoutes from './clientes.js';
+import rutasRoutes from './rutas.js';
+import comisionistasRoutes from './comisionistas.js';
+import fleterosRoutes from './fleteros.js';
 import viajesRoutes from './viajes.js';
-import choferesRoutes from './choferes.js';
-import productosRoutes from './productos.js';
-import preciosCerealesRoutes from './preciosCereales.js';
-import pagosRoutes from './pagos.js';
+import ordenesPagoRoutes from './ordenesPago.js';
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/usuarios', usuariosRoutes);
-router.use('/proveedores', proveedoresRoutes);
 router.use('/clientes', clientesRoutes);
+router.use('/rutas', rutasRoutes);
+router.use('/comisionistas', comisionistasRoutes);
+router.use('/fleteros', fleterosRoutes);
 router.use('/viajes', viajesRoutes);
-router.use('/choferes', choferesRoutes);
-router.use('/productos', productosRoutes);
-router.use('/precios-cereales', preciosCerealesRoutes);
-router.use('/pagos', pagosRoutes);
+router.use('/ordenes-pago', ordenesPagoRoutes);
 
 export default router;

@@ -19,7 +19,7 @@ const roles = [
     color: 'bg-blue-500',
   },
   {
-    id: 'GERENTE',
+    id: 'CONTADOR',
     nombre: 'Administracion',
     descripcion: 'Gestion administrativa',
     icon: Briefcase,

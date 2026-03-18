@@ -1,415 +1,355 @@
-// @ts-nocheck
-import { useState, useEffect } from 'react';
-import { Plus, X, Trash2, Pencil } from 'lucide-react';
-import api from '../services/api';
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { Viaje, Cliente, Ruta, Fletero, Comisionista, TipoIVA, EstadoViaje } from '../types';
 
-const emptyForm = {
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+
+const emptyForm = () => ({
   fecha: new Date().toISOString().split('T')[0],
-  chofer: '',
-  patente: '',
-  productoId: '',
-  cpe: '',
-  transporte: '',
-  clienteId: '',
-  proveedorId: '',
-  kmRecorridos: '',
-  kgCargados: '',
-  kgDescargados: '',
-  tarifaCliente: '',
-  tarifaTransporte: '',
-  descuento: '',
-  precioPizarra: '',
-  precioCompra: '',
-  precioVenta: '',
-};
+  clienteId: '', rutaId: '', origen: '', destino: '', tipoCarga: '',
+  cantCarga: '', tarifaSinIVA: '', tipoIVA: 'EXENTO' as TipoIVA,
+  valorIVA: '0', valorViaje: '', totalViaje: '',
+  comision: '0', comisionistaId: '', fleteroId: '',
+  remito: '', fcNro: '', fechaRecepcion: '',
+  estadoViaje: 'PENDIENTE' as EstadoViaje, estadoPago: 'PENDIENTE',
+  observaciones: '',
+});
+type FormType = ReturnType<typeof emptyForm>;
 
 export default function Viajes() {
-  const [viajes, setViajes] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [proveedores, setProveedores] = useState<any[]>([]);
-  const [choferes, setChoferes] = useState<any[]>([]);
-  const [productos, setProductos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<any>(null);
-  const [formData, setFormData] = useState(emptyForm);
-  const [error, setError] = useState('');
+  const { token } = useAuth();
+  const [viajes, setViajes] = useState<Viaje[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [rutas, setRutas] = useState<Ruta[]>([]);
+  const [fleteros, setFleteros] = useState<Fletero[]>([]);
+  const [comisionistas, setComisionistas] = useState<Comisionista[]>([]);
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState<Viaje | null>(null);
+  const [form, setForm] = useState<FormType>(emptyForm());
+  const [filterEstado, setFilterEstado] = useState('');
+  const [filterCliente, setFilterCliente] = useState('');
 
-  // Mini-modal para nuevo producto
-  const [showNuevoProducto, setShowNuevoProducto] = useState(false);
-  const [nuevoProductoNombre, setNuevoProductoNombre] = useState('');
-  const [savingProducto, setSavingProducto] = useState(false);
+  const loadViajes = () =>
+    fetch(`${API}/viajes`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(setViajes).catch(() => {});
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadViajes();
+    fetch(`${API}/clientes`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setClientes);
+    fetch(`${API}/rutas`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setRutas);
+    fetch(`${API}/fleteros`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setFleteros);
+    fetch(`${API}/comisionistas`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setComisionistas);
+  }, [token]);
 
-  const loadAll = async () => {
-    try {
-      const [vRes, cRes, pRes, chRes, prRes] = await Promise.all([
-        api.get('/viajes'),
-        api.get('/clientes'),
-        api.get('/proveedores'),
-        api.get('/choferes'),
-        api.get('/productos'),
-      ]);
-      setViajes(vRes.data);
-      setClientes(cRes.data);
-      setProveedores(pRes.data);
-      setChoferes(chRes.data);
-      setProductos(prRes.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const set = (key: string, val: string) => setFormData(f => ({ ...f, [key]: val }));
-
-  const handleChoferChange = (choferId: string) => {
-    const chofer = choferes.find(c => c.id === choferId);
-    setFormData(f => ({
+  const recalculate = (f: FormType): FormType => {
+    const cant = parseFloat(f.cantCarga) || 0;
+    const tarifa = parseFloat(f.tarifaSinIVA) || 0;
+    const valorViaje = cant * tarifa;
+    let valorIVA = 0;
+    if (f.tipoIVA === 'IVA_21') valorIVA = valorViaje * 0.21;
+    else if (f.tipoIVA === 'IVA_10_5') valorIVA = valorViaje * 0.105;
+    const totalViaje = valorViaje + valorIVA;
+    return {
       ...f,
-      chofer: choferId,
-      transporte: chofer?.transporte || f.transporte,
-      patente: chofer?.patenteCamion || f.patente,
-    }));
+      valorViaje: valorViaje ? valorViaje.toFixed(2) : '',
+      valorIVA: valorIVA.toFixed(2),
+      totalViaje: totalViaje ? totalViaje.toFixed(2) : '',
+    };
   };
 
-  const handleAgregarProducto = async () => {
-    if (!nuevoProductoNombre.trim()) return;
-    setSavingProducto(true);
-    try {
-      const res = await api.post('/productos', { nombre: nuevoProductoNombre.trim() });
-      const nuevo = res.data;
-      setProductos(prev => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
-      setFormData(f => ({ ...f, productoId: nuevo.id }));
-      setNuevoProductoNombre('');
-      setShowNuevoProducto(false);
-    } catch {
-      alert('Error al crear producto');
-    } finally {
-      setSavingProducto(false);
-    }
+  const setField = (key: keyof FormType, value: string) => {
+    const nf = { ...form, [key]: value };
+    setForm(['cantCarga', 'tarifaSinIVA', 'tipoIVA'].includes(key) ? recalculate(nf) : nf);
   };
 
-  const handleOpen = (viaje?: any) => {
-    if (viaje) {
-      setEditing(viaje);
-      setFormData({
-        fecha: viaje.fecha ? viaje.fecha.split('T')[0] : '',
-        chofer: viaje.chofer || '',
-        patente: viaje.patente || '',
-        productoId: viaje.productoId || '',
-        cpe: viaje.cpe || '',
-        transporte: viaje.transporte || '',
-        clienteId: viaje.clienteId || '',
-        proveedorId: viaje.proveedorId || '',
-        kmRecorridos: viaje.kmRecorridos ?? '',
-        kgCargados: viaje.kgCargados ?? '',
-        kgDescargados: viaje.kgDescargados ?? '',
-        tarifaCliente: viaje.tarifaCliente ?? '',
-        tarifaTransporte: viaje.tarifaTransporte ?? '',
-        descuento: viaje.descuento ?? '',
-        precioPizarra: viaje.precioPizarra ?? '',
-        precioCompra: viaje.precioCompra ?? '',
-        precioVenta: viaje.precioVenta ?? '',
-      });
+  const handleRutaChange = (rutaId: string) => {
+    const ruta = rutas.find(r => r.id === rutaId);
+    if (ruta) {
+      setForm(recalculate({
+        ...form, rutaId, destino: ruta.destino,
+        tipoCarga: ruta.tipoCarga || form.tipoCarga,
+        tarifaSinIVA: String(ruta.tarifaSinIVA),
+        comision: String(ruta.comision),
+      }));
     } else {
-      setEditing(null);
-      setFormData(emptyForm);
-    }
-    setError('');
-    setShowNuevoProducto(false);
-    setNuevoProductoNombre('');
-    setShowForm(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      if (editing) {
-        await api.put(`/viajes/${editing.id}`, formData);
-        alert('Viaje actualizado');
-      } else {
-        await api.post('/viajes', formData);
-        alert('Viaje creado');
-      }
-      setShowForm(false);
-      loadAll();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al guardar viaje');
+      setForm({ ...form, rutaId });
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('¿Eliminar este viaje?')) {
-      try {
-        await api.delete(`/viajes/${id}`);
-        loadAll();
-      } catch {
-        alert('Error al eliminar viaje');
-      }
-    }
+  const handleFleteroChange = (fleteroId: string) => {
+    const fl = fleteros.find(f => f.id === fleteroId);
+    setForm({ ...form, fleteroId, comisionistaId: fl?.comisionistaId || form.comisionistaId });
   };
 
-  const fmt = (v: any, prefix = '') => v != null ? `${prefix}${Number(v).toLocaleString('es-AR')}` : '-';
-  const formatFecha = (f: string) => f ? new Date(f).toLocaleDateString('es-AR') : '-';
-  const clienteNombre = (id: string) => clientes.find(c => c.id === id)?.nombre || '-';
-  const proveedorNombre = (id: string) => proveedores.find(p => p.id === id)?.nombre || '-';
-  const choferNombre = (id: string) => { const c = choferes.find(x => x.id === id); return c ? `${c.apellido} ${c.nombre}` : (id || '-'); };
-  const productoNombre = (id: string) => productos.find(p => p.id === id)?.nombre || '-';
+  const clienteRutas = rutas.filter(r => !form.clienteId || r.clienteId === form.clienteId);
 
-  if (loading) return <div className="text-center py-12">Cargando...</div>;
+  const openNew = () => { setEditing(null); setForm(emptyForm()); setModal(true); };
+
+  const openEdit = (v: Viaje) => {
+    setEditing(v);
+    setForm({
+      fecha: v.fecha.split('T')[0],
+      clienteId: v.clienteId, rutaId: v.rutaId || '',
+      origen: v.origen, destino: v.destino, tipoCarga: v.tipoCarga || '',
+      cantCarga: v.cantCarga !== undefined ? String(v.cantCarga) : '',
+      tarifaSinIVA: v.tarifaSinIVA !== undefined ? String(v.tarifaSinIVA) : '',
+      tipoIVA: v.tipoIVA,
+      valorIVA: v.valorIVA !== undefined ? String(v.valorIVA) : '0',
+      valorViaje: v.valorViaje !== undefined ? String(v.valorViaje) : '',
+      totalViaje: v.totalViaje !== undefined ? String(v.totalViaje) : '',
+      comision: v.comision !== undefined ? String(v.comision) : '0',
+      comisionistaId: v.comisionistaId || '', fleteroId: v.fleteroId || '',
+      remito: v.remito || '', fcNro: v.fcNro || '',
+      fechaRecepcion: v.fechaRecepcion ? v.fechaRecepcion.split('T')[0] : '',
+      estadoViaje: v.estadoViaje, estadoPago: v.estadoPago,
+      observaciones: v.observaciones || '',
+    });
+    setModal(true);
+  };
+
+  const save = async () => {
+    const url = editing ? `${API}/viajes/${editing.id}` : `${API}/viajes`;
+    const res = await fetch(url, {
+      method: editing ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(form),
+    });
+    if (res.ok) { setModal(false); loadViajes(); }
+    else { const err = await res.json(); alert(err.error || 'Error al guardar'); }
+  };
+
+  const del = async (id: string) => {
+    if (!window.confirm('Eliminar viaje?')) return;
+    await fetch(`${API}/viajes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    loadViajes();
+  };
+
+  const fmt = (n?: number) => n !== undefined ? `$${n.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : '-';
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-AR');
+
+  const estadoColor: Record<string, string> = {
+    PENDIENTE: 'bg-yellow-100 text-yellow-800',
+    EN_CURSO: 'bg-blue-100 text-blue-800',
+    COMPLETADO: 'bg-green-100 text-green-800',
+    CANCELADO: 'bg-red-100 text-red-800',
+  };
+  const pagoColor: Record<string, string> = {
+    PENDIENTE: 'bg-orange-100 text-orange-800',
+    PAGADO: 'bg-green-100 text-green-800',
+  };
+
+  const filtered = viajes.filter(v =>
+    (!filterEstado || v.estadoViaje === filterEstado) &&
+    (!filterCliente || v.clienteId === filterCliente)
+  );
+
+  const F = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      {children}
+    </div>
+  );
+  const inp = 'w-full border rounded-lg px-3 py-2 text-sm';
+  const sel = 'w-full border rounded-lg px-3 py-2 text-sm bg-white';
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Viajes</h1>
-          <p className="text-gray-600 mt-1">Gestión de viajes</p>
-        </div>
-        <button
-          onClick={() => handleOpen()}
-          className="btn bg-green-600 hover:bg-green-700 text-white flex items-center space-x-2"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Nuevo Viaje</span>
-        </button>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-gray-800">Viajes</h1>
+        <button onClick={openNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ Nuevo Viaje</button>
       </div>
 
-      <div className="card">
-        {viajes.length === 0 ? (
-          <p className="text-gray-500 text-center py-12">No hay viajes registrados aún</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {['Fecha', 'Chofer', 'Patente', 'Transporte', 'Cliente', 'Proveedor', 'CPE', 'Carga', 'KM', 'KG Carg.', 'KG Desc.', 'T. Cliente', 'T. Transp.', 'Desc.', 'P. Pizarra', 'P. Compra', 'P. Venta', 'Acciones'].map((col) => (
-                    <th key={col} className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {viajes.map((v) => (
-                  <tr key={v.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{formatFecha(v.fecha)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-900">{v.chofer ? choferNombre(v.chofer) : '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.patente || '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.transporte || '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.clienteId ? clienteNombre(v.clienteId) : '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.proveedorId ? proveedorNombre(v.proveedorId) : '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.cpe || '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{v.productoId ? productoNombre(v.productoId) : '-'}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.kmRecorridos)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.kgCargados)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.kgDescargados)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.tarifaCliente, '$')}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.tarifaTransporte, '$')}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.descuento)}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.precioPizarra, '$')}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.precioCompra, '$')}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-500">{fmt(v.precioVenta, '$')}</td>
-                    <td className="px-3 py-3 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-3">
-                        <button onClick={() => handleOpen(v)} className="text-blue-600 hover:text-blue-900">
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleDelete(v.id)} className="text-red-600 hover:text-red-900">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <select value={filterEstado} onChange={e => setFilterEstado(e.target.value)} className="border rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="">Todos los estados</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="EN_CURSO">En Curso</option>
+          <option value="COMPLETADO">Completado</option>
+          <option value="CANCELADO">Cancelado</option>
+        </select>
+        <select value={filterCliente} onChange={e => setFilterCliente(e.target.value)} className="border rounded-lg px-3 py-2 text-sm bg-white">
+          <option value="">Todos los clientes</option>
+          {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+        <span className="text-sm text-gray-500 self-center">{filtered.length} viajes</span>
       </div>
 
-      {/* Modal Viaje */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editing ? 'Editar Viaje' : 'Nuevo Viaje'}
-              </h2>
-              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-6 h-6" />
-              </button>
+      <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="px-3 py-2 text-left">Fecha</th>
+              <th className="px-3 py-2 text-left">Cliente</th>
+              <th className="px-3 py-2 text-left">Origen - Destino</th>
+              <th className="px-3 py-2 text-left">Fletero</th>
+              <th className="px-3 py-2 text-right">Total</th>
+              <th className="px-3 py-2 text-center">Estado</th>
+              <th className="px-3 py-2 text-center">Pago</th>
+              <th className="px-3 py-2 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map(v => (
+              <tr key={v.id} className="hover:bg-gray-50">
+                <td className="px-3 py-2">{fmtDate(v.fecha)}</td>
+                <td className="px-3 py-2">{v.cliente?.nombre || '-'}</td>
+                <td className="px-3 py-2">{v.origen} - {v.destino}</td>
+                <td className="px-3 py-2">{v.fletero?.nombre || '-'}</td>
+                <td className="px-3 py-2 text-right">{fmt(v.totalViaje)}</td>
+                <td className="px-3 py-2 text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoColor[v.estadoViaje]}`}>{v.estadoViaje}</span>
+                </td>
+                <td className="px-3 py-2 text-center">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${pagoColor[v.estadoPago]}`}>{v.estadoPago}</span>
+                </td>
+                <td className="px-3 py-2 text-center space-x-2">
+                  <button onClick={() => openEdit(v)} className="text-blue-600 hover:underline">Editar</button>
+                  <button onClick={() => del(v.id)} className="text-red-600 hover:underline">Eliminar</button>
+                </td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Sin viajes</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 overflow-y-auto p-4">
+          <div className="bg-white rounded-xl w-full max-w-3xl my-4">
+            <div className="px-6 py-4 border-b flex justify-between items-center">
+              <h2 className="text-lg font-semibold">{editing ? 'Editar' : 'Nuevo'} Viaje</h2>
+              <button onClick={() => setModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">x</button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{error}</div>}
+            <div className="p-6 space-y-6">
 
-              {/* Fecha */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fecha *</label>
-                <input type="date" value={formData.fecha} onChange={e => set('fecha', e.target.value)} className="input" required />
-              </div>
-
-              {/* Chofer + Patente */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Chofer</label>
-                  <select value={formData.chofer} onChange={e => handleChoferChange(e.target.value)} className="input">
-                    <option value="">— Sin chofer —</option>
-                    {choferes.map(c => (
-                      <option key={c.id} value={c.id}>{c.apellido} {c.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Patente</label>
-                  <input type="text" value={formData.patente} onChange={e => set('patente', e.target.value)} className="input" placeholder="ABC 123" />
-                </div>
-              </div>
-
-              {/* Transporte + CPE */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Transporte</label>
-                  <input type="text" value={formData.transporte} onChange={e => set('transporte', e.target.value)} className="input" placeholder="Empresa de transporte" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPE</label>
-                  <input type="text" value={formData.cpe} onChange={e => set('cpe', e.target.value)} className="input" placeholder="N° CPE" />
-                </div>
-              </div>
-
-              {/* Cliente + Proveedor */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-                  <select value={formData.clienteId} onChange={e => set('clienteId', e.target.value)} className="input">
-                    <option value="">— Sin cliente —</option>
-                    {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
-                  <select value={formData.proveedorId} onChange={e => set('proveedorId', e.target.value)} className="input">
-                    <option value="">— Sin proveedor —</option>
-                    {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              {/* Carga (Producto) + KM */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Carga</label>
-                  <div className="flex gap-2">
-                    <select value={formData.productoId} onChange={e => set('productoId', e.target.value)} className="input flex-1">
-                      <option value="">— Sin carga —</option>
-                      {productos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Datos del Viaje</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="Fecha">
+                    <input type="date" value={form.fecha} onChange={e => setField('fecha', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Cliente">
+                    <select value={form.clienteId} onChange={e => setForm({ ...form, clienteId: e.target.value, rutaId: '' })} className={sel}>
+                      <option value="">Seleccionar...</option>
+                      {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
-                    <button
-                      type="button"
-                      onClick={() => setShowNuevoProducto(v => !v)}
-                      className="btn bg-green-600 hover:bg-green-700 text-white px-2 flex-shrink-0"
-                      title="Agregar producto"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
+                  </F>
+                  <F label="Ruta">
+                    <select value={form.rutaId} onChange={e => handleRutaChange(e.target.value)} className={sel}>
+                      <option value="">Sin ruta predefinida</option>
+                      {clienteRutas.map(r => <option key={r.id} value={r.id}>{r.origen} - {r.destino}</option>)}
+                    </select>
+                  </F>
+                  <F label="Tipo de Carga">
+                    <input value={form.tipoCarga} onChange={e => setField('tipoCarga', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Origen">
+                    <input value={form.origen} onChange={e => setField('origen', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Destino">
+                    <input value={form.destino} onChange={e => setField('destino', e.target.value)} className={inp} />
+                  </F>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tarifas</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <F label="Cant. Carga (tn)">
+                    <input type="number" value={form.cantCarga} onChange={e => setField('cantCarga', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Tarifa s/IVA">
+                    <input type="number" value={form.tarifaSinIVA} onChange={e => setField('tarifaSinIVA', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Tipo IVA">
+                    <select value={form.tipoIVA} onChange={e => setField('tipoIVA', e.target.value)} className={sel}>
+                      <option value="EXENTO">Exento</option>
+                      <option value="IVA_10_5">10.5%</option>
+                      <option value="IVA_21">21%</option>
+                    </select>
+                  </F>
+                  <F label="Valor del Viaje">
+                    <input type="number" value={form.valorViaje} onChange={e => setField('valorViaje', e.target.value)} className={`${inp} bg-gray-50`} />
+                  </F>
+                  <F label="Valor IVA">
+                    <input type="number" value={form.valorIVA} readOnly className={`${inp} bg-gray-50`} />
+                  </F>
+                  <F label="Total Viaje">
+                    <input type="number" value={form.totalViaje} onChange={e => setField('totalViaje', e.target.value)} className={`${inp} bg-gray-50 font-semibold`} />
+                  </F>
+                  <F label="Comision">
+                    <input type="number" value={form.comision} onChange={e => setField('comision', e.target.value)} className={inp} />
+                  </F>
+                  <div className="col-span-2">
+                    <F label="Comisionista">
+                      <select value={form.comisionistaId} onChange={e => setField('comisionistaId', e.target.value)} className={sel}>
+                        <option value="">Sin comisionista</option>
+                        {comisionistas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                      </select>
+                    </F>
                   </div>
-                  {/* Inline: nuevo producto */}
-                  {showNuevoProducto && (
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={nuevoProductoNombre}
-                        onChange={e => setNuevoProductoNombre(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAgregarProducto())}
-                        className="input flex-1"
-                        placeholder="Nombre del producto"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAgregarProducto}
-                        disabled={savingProducto}
-                        className="btn bg-green-600 hover:bg-green-700 text-white px-3 flex-shrink-0"
-                      >
-                        {savingProducto ? '...' : 'Agregar'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setShowNuevoProducto(false); setNuevoProductoNombre(''); }}
-                        className="btn bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 flex-shrink-0"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">KM Recorridos</label>
-                  <input type="number" step="0.01" value={formData.kmRecorridos} onChange={e => set('kmRecorridos', e.target.value)} className="input" placeholder="0" />
                 </div>
               </div>
 
-              {/* KG Cargados + KG Descargados */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">KG Cargados</label>
-                  <input type="number" step="0.01" value={formData.kgCargados} onChange={e => set('kgCargados', e.target.value)} className="input" placeholder="0" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">KG Descargados</label>
-                  <input type="number" step="0.01" value={formData.kgDescargados} onChange={e => set('kgDescargados', e.target.value)} className="input" placeholder="0" />
-                </div>
-              </div>
-
-              {/* Tarifa Cliente + Tarifa Transporte */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tarifa Cliente ($)</label>
-                  <input type="number" step="0.01" value={formData.tarifaCliente} onChange={e => set('tarifaCliente', e.target.value)} className="input" placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tarifa Transporte ($)</label>
-                  <input type="number" step="0.01" value={formData.tarifaTransporte} onChange={e => set('tarifaTransporte', e.target.value)} className="input" placeholder="0.00" />
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Transporte</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="Fletero">
+                    <select value={form.fleteroId} onChange={e => handleFleteroChange(e.target.value)} className={sel}>
+                      <option value="">Sin fletero</option>
+                      {fleteros.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                    </select>
+                  </F>
+                  <F label="Remito">
+                    <input value={form.remito} onChange={e => setField('remito', e.target.value)} className={inp} />
+                  </F>
                 </div>
               </div>
 
-              {/* Descuento + Precio Pizarra */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descuento</label>
-                  <input type="number" step="0.01" value={formData.descuento} onChange={e => set('descuento', e.target.value)} className="input" placeholder="0" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio Pizarra ($)</label>
-                  <input type="number" step="0.01" value={formData.precioPizarra} onChange={e => set('precioPizarra', e.target.value)} className="input" placeholder="0.00" />
-                </div>
-              </div>
-
-              {/* Precio Compra + Precio Venta */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
-                  <input type="number" step="0.01" value={formData.precioCompra} onChange={e => set('precioCompra', e.target.value)} className="input" placeholder="0.00" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
-                  <input type="number" step="0.01" value={formData.precioVenta} onChange={e => set('precioVenta', e.target.value)} className="input" placeholder="0.00" />
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Factura</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="N Factura">
+                    <input value={form.fcNro} onChange={e => setField('fcNro', e.target.value)} className={inp} />
+                  </F>
+                  <F label="Fecha Recepcion">
+                    <input type="date" value={form.fechaRecepcion} onChange={e => setField('fechaRecepcion', e.target.value)} className={inp} />
+                  </F>
                 </div>
               </div>
 
-              <div className="flex space-x-3 pt-3">
-                <button type="button" onClick={() => setShowForm(false)} className="flex-1 btn bg-gray-200 hover:bg-gray-300 text-gray-700">
-                  Cancelar
-                </button>
-                <button type="submit" className="flex-1 btn bg-green-600 hover:bg-green-700 text-white">
-                  {editing ? 'Actualizar' : 'Crear'}
-                </button>
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Estado</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <F label="Estado del Viaje">
+                    <select value={form.estadoViaje} onChange={e => setField('estadoViaje', e.target.value)} className={sel}>
+                      <option value="PENDIENTE">Pendiente</option>
+                      <option value="EN_CURSO">En Curso</option>
+                      <option value="COMPLETADO">Completado</option>
+                      <option value="CANCELADO">Cancelado</option>
+                    </select>
+                  </F>
+                  <F label="Estado de Pago">
+                    <select value={form.estadoPago} onChange={e => setField('estadoPago', e.target.value)} className={sel}>
+                      <option value="PENDIENTE">Pendiente</option>
+                      <option value="PAGADO">Pagado</option>
+                    </select>
+                  </F>
+                  <div className="col-span-2">
+                    <F label="Observaciones">
+                      <textarea value={form.observaciones} onChange={e => setField('observaciones', e.target.value)} className={`${inp} resize-none`} rows={2} />
+                    </F>
+                  </div>
+                </div>
               </div>
-            </form>
+
+            </div>
+            <div className="px-6 py-4 border-t flex gap-2 justify-end">
+              <button onClick={() => setModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+              <button onClick={save} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Guardar Viaje</button>
+            </div>
           </div>
         </div>
       )}

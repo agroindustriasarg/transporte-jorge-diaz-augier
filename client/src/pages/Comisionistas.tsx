@@ -1,76 +1,66 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Cliente } from '../types';
+import { Comisionista } from '../types';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
-const emptyForm = () => ({ nombre: '', cuit: '', telefono: '', email: '', contacto: '' });
 
-export default function Clientes() {
+export default function Comisionistas() {
   const { token } = useAuth();
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [items, setItems] = useState<Comisionista[]>([]);
   const [modal, setModal] = useState(false);
-  const [editing, setEditing] = useState<Cliente | null>(null);
-  const [form, setForm] = useState(emptyForm());
-  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<Comisionista | null>(null);
+  const [form, setForm] = useState({ nombre: '', cuit: '', telefono: '', email: '' });
 
-  const load = () => fetch(`${API}/clientes`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setClientes);
+  const load = () => fetch(`${API}/comisionistas`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).then(setItems);
   useEffect(() => { load(); }, []);
 
-  const openNew = () => { setEditing(null); setForm(emptyForm()); setModal(true); };
-  const openEdit = (c: Cliente) => { setEditing(c); setForm({ nombre: c.nombre, cuit: c.cuit || '', telefono: c.telefono || '', email: c.email || '', contacto: c.contacto || '' }); setModal(true); };
+  const openNew = () => { setEditing(null); setForm({ nombre: '', cuit: '', telefono: '', email: '' }); setModal(true); };
+  const openEdit = (c: Comisionista) => { setEditing(c); setForm({ nombre: c.nombre, cuit: c.cuit || '', telefono: c.telefono || '', email: c.email || '' }); setModal(true); };
 
   const save = async () => {
-    const url = editing ? `${API}/clientes/${editing.id}` : `${API}/clientes`;
+    const url = editing ? `${API}/comisionistas/${editing.id}` : `${API}/comisionistas`;
     await fetch(url, { method: editing ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(form) });
     setModal(false); load();
   };
 
   const del = async (id: string) => {
-    if (!confirm('¿Eliminar cliente?')) return;
-    await fetch(`${API}/clientes/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (!confirm('¿Eliminar comisionista?')) return;
+    await fetch(`${API}/comisionistas/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     load();
   };
-
-  const filtered = clientes.filter(c => c.nombre.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-gray-800">Clientes</h1>
-        <button onClick={openNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ Nuevo Cliente</button>
+        <h1 className="text-2xl font-bold text-gray-800">Comisionistas</h1>
+        <button onClick={openNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">+ Nuevo</button>
       </div>
-      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="border rounded-lg px-3 py-2 text-sm mb-4 w-64" />
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="px-4 py-2 text-left">Nombre</th><th className="px-4 py-2 text-left">CUIT</th>
-              <th className="px-4 py-2 text-left">Teléfono</th><th className="px-4 py-2 text-left">Email</th>
-              <th className="px-4 py-2 text-left">Contacto</th><th className="px-4 py-2 text-center">Acciones</th>
-            </tr>
+            <tr><th className="px-4 py-2 text-left">Nombre</th><th className="px-4 py-2 text-left">CUIT</th><th className="px-4 py-2 text-left">Teléfono</th><th className="px-4 py-2 text-left">Email</th><th className="px-4 py-2 text-center">Acciones</th></tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map(c => (
+            {items.map(c => (
               <tr key={c.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2 font-medium">{c.nombre}</td><td className="px-4 py-2">{c.cuit || '-'}</td>
                 <td className="px-4 py-2">{c.telefono || '-'}</td><td className="px-4 py-2">{c.email || '-'}</td>
-                <td className="px-4 py-2">{c.contacto || '-'}</td>
                 <td className="px-4 py-2 text-center space-x-2">
                   <button onClick={() => openEdit(c)} className="text-blue-600 hover:underline">Editar</button>
                   <button onClick={() => del(c.id)} className="text-red-600 hover:underline">Eliminar</button>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Sin clientes</td></tr>}
+            {items.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Sin comisionistas</td></tr>}
           </tbody>
         </table>
       </div>
       {modal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4">{editing ? 'Editar' : 'Nuevo'} Cliente</h2>
+          <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-semibold mb-4">{editing ? 'Editar' : 'Nuevo'} Comisionista</h2>
             <div className="space-y-3">
-              {(['nombre', 'cuit', 'telefono', 'email', 'contacto'] as const).map(f => (
+              {(['nombre', 'cuit', 'telefono', 'email'] as const).map(f => (
                 <div key={f}><label className="block text-sm text-gray-600 mb-1 capitalize">{f}</label>
                   <input value={form[f]} onChange={e => setForm({ ...form, [f]: e.target.value })} className="w-full border rounded-lg px-3 py-2 text-sm" /></div>
               ))}

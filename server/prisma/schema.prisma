@@ -7,48 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========== USUARIOS Y AUTENTICACIÓN ==========
-
-model User {
-  id        String   @id @default(uuid())
-  usuario   String   @unique
-  email     String   @unique
+model Usuario {
+  id        String     @id @default(uuid())
+  usuario   String     @unique
+  email     String     @unique
   password  String
   nombre    String
   apellido  String
-  rol       UserRole @default(OPERARIO)
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  rol       RolUsuario @default(OPERARIO)
+  activo    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@map("usuarios")
 }
 
-enum UserRole {
+enum RolUsuario {
   ADMIN
-  GERENTE
+  CONTADOR
   OPERARIO
   VISOR
 }
-
-// ========== PROVEEDORES ==========
-
-model Proveedor {
-  id        String   @id @default(uuid())
-  nombre    String
-  cuit      String?
-  telefono  String?
-  email     String?
-  direccion String?
-  contacto  String?
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("proveedores")
-}
-
-// ========== CLIENTES ==========
 
 model Cliente {
   id        String   @id @default(uuid())
@@ -56,115 +35,184 @@ model Cliente {
   cuit      String?
   telefono  String?
   email     String?
-  direccion String?
   contacto  String?
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  rutas  Ruta[]
+  viajes Viaje[]
+
   @@map("clientes")
 }
 
-// ========== CHOFERES ==========
+model Ruta {
+  id           String   @id @default(uuid())
+  clienteId    String
+  cliente      Cliente  @relation(fields: [clienteId], references: [id])
+  origen       String
+  destino      String
+  tipoCarga    String?
+  tarifaSinIVA Float
+  comision     Float    @default(0)
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-model Chofer {
-  id              String   @id @default(uuid())
-  nombre          String
-  apellido        String
-  dni             String?
-  telefono        String?
-  transporte      String?
-  marcaCamion     String?
-  patenteCamion   String?
-  patenteAcoplado String?
-  activo          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  viajes Viaje[]
 
-  @@map("choferes")
+  @@map("rutas")
 }
 
-// ========== PRODUCTOS ==========
-
-model Producto {
+model Comisionista {
   id        String   @id @default(uuid())
   nombre    String
+  cuit      String?
+  telefono  String?
+  email     String?
+  activo    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("productos")
+  fleteros      Fletero[]
+  viajes        Viaje[]
+  pagosComision PagoComision[]
+
+  @@map("comisionistas")
 }
 
-// ========== PAGOS ==========
-
-model Pago {
-  id                   String   @id @default(uuid())
-  tipo                 String   // "proveedor" | "cliente" | "transporte"
-  entidadId            String?
-  entidadNombre        String?
-  concepto             String?
-  numeroComprobante    String?
-  moneda               String   @default("ARS")
-  cotizacion           Float    @default(1)
-  monto                Float
-  montoARS             Float    @default(0)
-  fecha                DateTime @default(now())
-  // Forma de pago
-  formaPago            String?  // TRANSFERENCIA | EFECTIVO | TARJETA | CHEQUE
-  chequeNumero         String?
-  chequeBanco          String?
-  chequeEmpresa        String?
-  chequeFechaCobro     DateTime?
-  // Campos exclusivos de combustible (solo transporte)
-  esCombustible        Boolean  @default(false)
-  combProveedor        String?
-  combLitros           Float?
-  combPrecioLitro      Float?
-  combNFactura         String?
-  combNOrden           String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  @@map("pagos")
+enum FormaPago {
+  EFECTIVO
+  TRANSFERENCIA
+  CHEQUE
 }
 
-// ========== PRECIOS CEREALES ==========
+model Fletero {
+  id             String        @id @default(uuid())
+  nombre         String
+  cuit           String?
+  telefono       String?
+  email          String?
+  formaPago      FormaPago     @default(TRANSFERENCIA)
+  plazo          Int           @default(30)
+  comisionistaId String?
+  comisionista   Comisionista? @relation(fields: [comisionistaId], references: [id])
+  activo         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-model PrecioCereal {
-  id        String   @id @default(uuid())
-  cereal    String   @unique
-  precio    Float    @default(0)
-  difPesos  Float    @default(0)
-  difPct    Float    @default(0)
-  tendencia String   @default("up")
-  updatedAt DateTime @updatedAt
+  viajes      Viaje[]
+  ordenesPago OrdenPago[]
 
-  @@map("precios_cereales")
+  @@map("fleteros")
 }
 
-// ========== VIAJES ==========
+enum EstadoViaje {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADO
+  CANCELADO
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PAGADO
+}
+
+enum TipoIVA {
+  IVA_21
+  IVA_10_5
+  EXENTO
+}
 
 model Viaje {
-  id               String   @id @default(uuid())
-  fecha            DateTime
-  chofer           String?
-  patente          String?
-  productoId       String?
-  cpe              String?
-  transporte       String?
-  clienteId        String?
-  proveedorId      String?
-  kmRecorridos     Float?
-  kgCargados       Float?
-  kgDescargados    Float?
-  tarifaCliente    Float?
-  tarifaTransporte Float?
-  descuento        Float?
-  precioPizarra    Float?
-  precioCompra     Float?
-  precioVenta      Float?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String        @id @default(uuid())
+  fecha          DateTime
+  clienteId      String
+  cliente        Cliente       @relation(fields: [clienteId], references: [id])
+  rutaId         String?
+  ruta           Ruta?         @relation(fields: [rutaId], references: [id])
+  origen         String
+  destino        String
+  tipoCarga      String?
+  cantCarga      Float?
+  tarifaSinIVA   Float?
+  tipoIVA        TipoIVA       @default(EXENTO)
+  valorIVA       Float?        @default(0)
+  valorViaje     Float?
+  totalViaje     Float?
+  comision       Float?        @default(0)
+  comisionistaId String?
+  comisionista   Comisionista? @relation(fields: [comisionistaId], references: [id])
+  fleteroId      String?
+  fletero        Fletero?      @relation(fields: [fleteroId], references: [id])
+  remito         String?
+  fcNro          String?
+  fechaRecepcion DateTime?
+  estadoViaje    EstadoViaje   @default(PENDIENTE)
+  estadoPago     EstadoPago    @default(PENDIENTE)
+  ordenPagoId    String?
+  ordenPago      OrdenPago?    @relation(fields: [ordenPagoId], references: [id])
+  observaciones  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@map("viajes")
+}
+
+model OrdenPago {
+  id        String    @id @default(uuid())
+  numero    Int       @default(autoincrement())
+  fecha     DateTime  @default(now())
+  fleteroId String
+  fletero   Fletero   @relation(fields: [fleteroId], references: [id])
+  total     Float     @default(0)
+  estado    String    @default("PENDIENTE")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  viajes       Viaje[]
+  valores      ValorOP[]
+  comprobantes ComprobanteOP[]
+
+  @@map("ordenes_pago")
+}
+
+model ValorOP {
+  id          String    @id @default(uuid())
+  ordenPagoId String
+  ordenPago   OrdenPago @relation(fields: [ordenPagoId], references: [id], onDelete: Cascade)
+  tipo        String
+  monto       Float
+  chequeBanco String?
+  chequeNro   String?
+  chequeFecha DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("valores_op")
+}
+
+model ComprobanteOP {
+  id          String    @id @default(uuid())
+  ordenPagoId String
+  ordenPago   OrdenPago @relation(fields: [ordenPagoId], references: [id], onDelete: Cascade)
+  tipo        String
+  numero      String
+  monto       Float
+  fecha       DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("comprobantes_op")
+}
+
+model PagoComision {
+  id             String       @id @default(uuid())
+  comisionistaId String
+  comisionista   Comisionista @relation(fields: [comisionistaId], references: [id])
+  fecha          DateTime     @default(now())
+  monto          Float
+  concepto       String?
+  createdAt      DateTime     @default(now())
+
+  @@map("pagos_comision")
 }

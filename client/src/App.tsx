@@ -1,56 +1,38 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Proveedores from './pages/Proveedores';
-import Clientes from './pages/Clientes';
 import Viajes from './pages/Viajes';
-import Choferes from './pages/Choferes';
-import Gastos from './pages/Gastos';
+import Clientes from './pages/Clientes';
+import Fleteros from './pages/Fleteros';
+import Comisionistas from './pages/Comisionistas';
+import Rutas from './pages/Rutas';
+import OrdenesPago from './pages/OrdenesPago';
+import FacturasAPagar from './pages/FacturasAPagar';
 import Usuarios from './pages/Usuarios';
-import Reportes from './pages/Reportes';
-import Contabilidad from './pages/Contabilidad';
-import Pagos from './pages/Pagos';
-import PagoProveedores from './pages/PagoProveedores';
-import PagoClientes from './pages/PagoClientes';
-import PagoTransportes from './pages/PagoTransportes';
-import PreciosCereales from './pages/PreciosCereales';
-import Ganancias from './pages/Ganancias';
-
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
-  }
-
-  return user ? <Layout>{children}</Layout> : <Navigate to="/login" />;
-}
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/proveedores" element={<PrivateRoute><Proveedores /></PrivateRoute>} />
-          <Route path="/clientes" element={<PrivateRoute><Clientes /></PrivateRoute>} />
-          <Route path="/viajes" element={<PrivateRoute><Viajes /></PrivateRoute>} />
-          <Route path="/choferes" element={<PrivateRoute><Choferes /></PrivateRoute>} />
-          <Route path="/gastos" element={<PrivateRoute><Gastos /></PrivateRoute>} />
-          <Route path="/usuarios" element={<PrivateRoute><Usuarios /></PrivateRoute>} />
-          <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
-          <Route path="/contabilidad" element={<PrivateRoute><Contabilidad /></PrivateRoute>} />
-          <Route path="/pagos" element={<PrivateRoute><Pagos /></PrivateRoute>} />
-          <Route path="/pagos/proveedores" element={<PrivateRoute><PagoProveedores /></PrivateRoute>} />
-          <Route path="/pagos/clientes" element={<PrivateRoute><PagoClientes /></PrivateRoute>} />
-          <Route path="/pagos/transportes" element={<PrivateRoute><PagoTransportes /></PrivateRoute>} />
-          <Route path="/precios-cereales" element={<PrivateRoute><PreciosCereales /></PrivateRoute>} />
-          <Route path="/ganancias" element={<PrivateRoute><Ganancias /></PrivateRoute>} />
+          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="viajes" element={<Viajes />} />
+            <Route path="ordenes-pago" element={<OrdenesPago />} />
+            <Route path="facturas-a-pagar" element={<FacturasAPagar />} />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="fleteros" element={<Fleteros />} />
+            <Route path="comisionistas" element={<Comisionistas />} />
+            <Route path="rutas" element={<Rutas />} />
+            <Route path="usuarios" element={<Usuarios />} />
+          </Route>
         </Routes>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   );
 }
